@@ -1,8 +1,6 @@
 package SongListsService.infra;
 
-import java.time.LocalDate;
-import java.util.ArrayList; 
-import java.util.List;
+import java.time.Instant;
 import java.util.regex.Pattern;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,20 +9,21 @@ import org.springframework.stereotype.Service;
 
 import SongListsService.aop.IncompatibleSongDetailsException;
 import SongListsService.aop.IncompatibleSongListDetailsException;
-import SongListsService.aop.SongAlreadyExistsException;
-import SongListsService.aop.SongListAlreadyExistsException;
-import SongListsService.aop.SongListNotFoundException;
-import SongListsService.aop.SongNotFoundException;
 import SongListsService.dao.SongDao;
 import SongListsService.dao.SongListDao;
 import SongListsService.data.Song;
+import SongListsService.data.SongAttributes;
+import SongListsService.data.SongComparator;
 import SongListsService.data.SongList;
+import SongListsService.data.SongListAttributes;
+import SongListsService.data.SongListComparator;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 @Service
 public class SongListServiceImpl implements SongListService{
 
 	private SongListDao songListDao ;
-
 	private SongDao songDao ;
 	
 	@Autowired
@@ -33,144 +32,122 @@ public class SongListServiceImpl implements SongListService{
 		this.songDao = songDao; 
 	}
 	
+	@Override
+	public Mono<SongList> createSongList(SongList songList) {
+		
+		if (!validateSongList(songList))
+			return Mono.error(new IncompatibleSongListDetailsException());
+		songList.setId(null);
+	    songList.setCreatedTimestamp(Instant.now());
+		songList.setDeleted(false);
+		return this.songListDao.save(songList);	
+	}
 	
 	@Override
-	public void addSongToSongList(String songListId, Song song) {
+	public Mono<SongList> getSongListById(String songListId) {
 		
-		SongList songList =this.songListDao.getSongListById(songListId).orElseThrow(() -> 
-		  new SongListNotFoundException(songListId));
-		
-		if ( songList.isDeleted() )
-		throw new SongListNotFoundException(songListId) ;
-		
-		if(song.getSongId().trim().isEmpty() ||song.getSongId() == null )
-		
-			throw new IncompatibleSongDetailsException(song.getSongId()) ;
-		
-		if( ! this.songDao.getSongById(song.getSongId()).isPresent() )
-		this.songDao.create(song);
-		
-		if (songList.getSongs().contains(song) )
-			throw new SongAlreadyExistsException(song.getSongId());
-		else 
-		{
-			List<Song> songs = songList.getSongs() ;
-			songs.add(song);
-			songList.setSongs(songs);
-		}
-			
-			
+		return this.songListDao.findById(songListId).filter(s -> !s.isDeleted());
 	}
-
-	@Override
-	public Song getSongById(String songId) {
-		
-		 return this.songDao.getSongById(songId).
-				 orElseThrow(() -> new SongNotFoundException(songId));
-	}
-
 	
-
 	@Override
-	public void createSongsList(SongList songList) {
+	public Mono<Void> addSongToSongList(String songListId, Song song) {
 		
-		if (this.songListDao.getSongListById(songList.getId()).isPresent())
-			throw new SongListAlreadyExistsException(songList.getId());
+		if (!validateSong(song))
+			return Mono.error(new IncompatibleSongDetailsException());
 		
-		List<Song> songs =new ArrayList<Song>();
-		if(!validateSongList(songList))
-			throw new IncompatibleSongListDetailsException(); 
-		songList.setDeleted(true);
-		songList.setSongs(songs);
+		song.setSongId(song.getSongId()+"#"+songListId);
 		
-		this.songListDao.create(songList);
+		//Save song in DB
+		return this.songDao.findById(song.getSongId())
+			.flatMap(old -> {
+				//In the future maybe certain updates to the song would be handled here
+				return this.songDao.save(song);
+			})
+			.switchIfEmpty(this.songDao.save(song))
+			.flatMap(d -> Mono.empty());		
+	}
+
+	private boolean validateSong(Song song) {
+		return song.getSongId() != null &&
+				!song.getSongId().trim().isEmpty();
 	}
 
 	@Override
-	public SongList getSongListById(String songListId) {
+	public Mono<Void> updateSongList(String songListId, SongList update) {
 		
-		SongList songList = this.songListDao.getSongListById(songListId).
-				orElseThrow(() -> new SongListNotFoundException(songListId));
-		if(songList.isDeleted())
-			throw new SongListNotFoundException(songListId) ;
-		
-		return songList ;
+		return this.getSongListById(songListId)
+				.flatMap(oldSongList -> {
+					if (update.getName() != null && !update.getName().trim().isEmpty())
+						oldSongList.setName(update.getName());
+					if (validateEmail(update.getUserEmail()))
+						oldSongList.setUserEmail(update.getUserEmail());
+					return this.songListDao.save(oldSongList);
+				})
+				.flatMap(d -> Mono.empty());		
 	}
 
 	@Override
-	public void updateSongList(String songListId, SongList update) {
-		
-		SongList songList = this.songListDao.getSongListById(songListId).orElseThrow(	
-			() -> new SongListNotFoundException(songListId));
-		
-		if(songList.isDeleted())
-	throw new SongListNotFoundException(songListId) ;
-		
-		
-		if( !update.getName().trim().isEmpty() &&  update.getName() != null )
-		songList.setName(update.getName());
-		
-		if(!update.getUserEmail().trim().isEmpty() &&  update.getUserEmail() != null)
-	songList.setUserEmail(update.getUserEmail());
-		this.songListDao.updateSongList(songListId,songList);
+	public Mono<Void> markSongsListAsDeleted(String songListId, boolean flag) {
+
+		return this.songListDao.findById(songListId)
+			.flatMap(oldSongList -> {
+				oldSongList.setDeleted(flag);
+				return this.songListDao.save(oldSongList);
+			})
+			.flatMap(d -> Mono.empty());
 	}
 
 	@Override
-	public void markSongsListAsDeletedOrUndeleted(String songListId, boolean flag) {
-
-
-		SongList songList = this.songListDao.getSongListById(songListId).orElseThrow(
-				() -> new SongListNotFoundException(songListId) ) ;
+	public Mono<Void> deleteAllSongLists() {
 		
-		songList.setDeleted(flag);
-	this.songListDao.updateSongList(songListId, songList);
+		return this.songListDao.deleteAll();		
 	}
 
 	@Override
-	public void deleteAllSongsList() {
+	public Mono<Void> deleteSongFromSongList(String songListId, String songId) {
 		
-     this.songListDao.deleteAllSongLists();		
+		return this.songDao.deleteById(songId+"#"+songListId);
 	}
 
 	@Override
-	public void deleteSongFromSongList(String songListId, String songId) {
-		
-		SongList songList = this.songListDao.getSongListById(songListId).orElseThrow(
-				() -> new SongListNotFoundException(songListId) ) ;
-		
-		if (songList.isDeleted())
-			throw new SongListNotFoundException(songListId) ;
-		
-	List<Song> songs = songList.getSongs() ;
+	public Flux<Song> readSongsBySongListId(String songListId, Direction orderAttr, SongAttributes sortAttr) {
+
+		SongComparator comp = new SongComparator(sortAttr, orderAttr);
+		return this.getSongListById(songListId)
+				.flux()
+				.flatMap(list -> this.songDao.findAllBySongIdEndingWith("#"+list.getId()))
+				.sort(comp);
+	}
+
+	@Override
+	public Flux<SongList> readSongListsByUser(String user, Direction orderAttr, SongListAttributes sortAttr) {
 	
-	if (!songs.contains(new Song(songId)))
-		throw new SongNotFoundException(songId) ;
-	
-	
-	songs.remove(new Song(songId)) ;
-		
-	songList.setSongs(songs);
-	this.songListDao.updateSongList(songListId, songList);
+		SongListComparator comp = new SongListComparator(sortAttr, orderAttr);
+		return this.songListDao
+				.findAllByUserEmail(user)
+				.filter(list -> !list.isDeleted())
+				.sort(comp);
 	}
 
 	@Override
-	public List<Song> readSongsBySongListId(String songListId, Direction orderAttr, String sortAttr) {
-
-return this.songListDao.readAllSongsFromSongList(songListId, orderAttr, sortAttr) ;
+	public Flux<SongList> readSongListsBySongId(String songId, Direction orderAttr, SongListAttributes sortAttr) {
+		SongListComparator comp = new SongListComparator(sortAttr, orderAttr);
+		return this.songDao.findAllBySongIdStartingWith(songId+"#")
+				.flatMap(s -> this.songListDao
+							.findById(s.getSongId()
+									.split("#")[1]))
+				.filter(list -> !list.isDeleted())
+				.sort(comp);
 	}
-
+	
 	@Override
-	public List<SongList> readSongListByUser(String user, Direction orderAttr, String sortAttr) {
+	public Flux<SongList> readSongLists(Direction orderAttr, SongListAttributes sortAttr) {
 	
-		return this.readSongListByUser(user, orderAttr, sortAttr);
-	
-	}
-
-	@Override
-	public List<SongList> readAllSongList(Direction orderAttr, String sortAttr) {
-	
-		return this.readAllSongList(orderAttr, sortAttr);
-	
+		SongListComparator comp = new SongListComparator(sortAttr, orderAttr);
+		return this.songListDao
+				.findAll()
+				.filter(a -> !a.isDeleted())
+				.sort(comp);
 	}
 
 	private boolean validateEmail(String email) {
@@ -186,16 +163,8 @@ return this.songListDao.readAllSongsFromSongList(songListId, orderAttr, sortAttr
 	
 	
 	private boolean validateSongList(SongList songList) {
-		return songList.getCreatedTimestamp() != null &&
-				songList.getCreatedTimestamp().isBefore(LocalDate.now()) &&
-				songList.getCreatedTimestamp().isAfter(LocalDate.now().minusYears(150)) && //we assume no person is older than 150
-				songList.getId() != null &&
-				!songList.getId().trim().isEmpty() &&
-				validateEmail(songList.getUserEmail()) &&
+		return validateEmail(songList.getUserEmail()) &&
 				songList.getName() != null &&
 				!songList.getName().trim().isEmpty() ;
-			
 	}
-
-	
 }
