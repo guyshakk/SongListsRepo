@@ -11,7 +11,7 @@ public class SongBoundary {
 	
 	public SongBoundary(Song song) {
 		if (song.getSongId() != null)
-			this.songId = song.getSongId();
+			this.songId = song.getSongId().split("#")[0];
 	}
 
 	public String getSongId() {

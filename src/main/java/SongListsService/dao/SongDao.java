@@ -1,15 +1,17 @@
 package SongListsService.dao;
 
-import java.util.Optional;
+import org.springframework.data.mongodb.repository.ReactiveMongoRepository;
+import org.springframework.data.repository.query.Param;
 
 import SongListsService.data.Song;
+import reactor.core.publisher.Flux;
 
 
-public interface SongDao {
+public interface SongDao extends ReactiveMongoRepository<Song, String> {
 	
-    public Song create (Song song);
+    public Flux<Song> findAllBySongIdLike(@Param("songId") String songId);
 	
-	public Optional<Song> getSongById (String songId);
-	
-	
+    public Flux<Song> findAllBySongIdStartingWith(@Param("songId") String songId);
+
+    public Flux<Song> findAllBySongIdEndingWith(@Param("songId") String songId);
 }

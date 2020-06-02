@@ -1,15 +1,27 @@
-package SongListsService.layout ; 
+package SongListsService.layout;
 
 import SongListsService.data.SongList;
 
-public class SongListBoundry {
+public class ReturnedSongListBoundary {
+
 	private String id ;
 	private String name;
 	private String userEmail;
 	private String createdTimestamp;
-	private String deleted;
 
-	public SongListBoundry() {
+	public ReturnedSongListBoundary() {
+	}
+	
+	public ReturnedSongListBoundary(SongList songslist) {
+		if(songslist.getCreatedTimestamp() != null) {    
+			this.createdTimestamp = songslist.getCreatedTimestamp().toString();
+		}
+		if(songslist.getId() != null)
+			this.id=songslist.getId();
+		if(songslist.getName() != null)
+			this.name = songslist.getName();
+		if(songslist.getUserEmail() != null)
+			this.userEmail = songslist.getUserEmail();
 	}
 		
 	public String getId() {
@@ -43,23 +55,4 @@ public class SongListBoundry {
 	public void setCreatedTimestamp(String createdTimestamp) {
 		this.createdTimestamp = createdTimestamp;
 	}
-	
-	public String getDeleted() {
-		return deleted;
-	}
-
-	public void setDeleted(String deleted) {
-		this.deleted = deleted;
-	}
-	
-	public SongList convertToEntity () {	
-		SongList sList = new SongList();
-		if (getUserEmail() != null)
-	    	sList.setUserEmail(this.userEmail);
-	    if (getId() != null)
-	    	sList.setId(this.id);
-	    if (getName() != null)
-	    	sList.setName(this.name);
-	    return sList;
-	}	
 }

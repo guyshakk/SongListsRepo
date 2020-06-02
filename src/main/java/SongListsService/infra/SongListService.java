@@ -1,36 +1,35 @@
 package SongListsService.infra;
 
-import java.util.List;
-
 import org.springframework.data.domain.Sort.Direction;
 
 import SongListsService.data.Song;
+import SongListsService.data.SongAttributes;
 import SongListsService.data.SongList;
+import SongListsService.data.SongListAttributes;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 public interface SongListService {
-
 	
+	public Mono<SongList> createSongList (SongList songsList);
 	
-public void addSongToSongList (String songListId,Song song);
+	public Mono<SongList> getSongListById (String songListId);
 	
-	public Song getSongById (String songId);
+	public Mono<Void> updateSongList (String songListId, SongList update);
 	
+	public Mono<Void> addSongToSongList (String songListId, Song song);
 	
-	public void createSongsList (SongList songsList);
+	public Mono<Void> markSongsListAsDeleted (String songListId, boolean flag);
 	
-	public SongList getSongListById (String songListId);
+	public Mono<Void> deleteAllSongLists();
 	
-	public void updateSongList (String songListId, SongList update);
+	public Mono<Void> deleteSongFromSongList (String songListId, String songId);
 	
-	public void markSongsListAsDeletedOrUndeleted (String songListId,boolean flag);
-	
-	public void deleteAllSongsList ();
-	
-	public void deleteSongFromSongList (String songListId,String songId);
-	
-	public List<Song> readSongsBySongListId (String songListId,Direction orderAttr ,String sortAttr);
+	public Flux<Song> readSongsBySongListId (String songListId, Direction orderAttr, SongAttributes sortAttr);
  
-	public List<SongList> readSongListByUser (String user , Direction orderAttr ,String sortAttr );
+	public Flux<SongList> readSongListsByUser (String user, Direction orderAttr, SongListAttributes sortAttr);
+	
+	public Flux<SongList> readSongListsBySongId (String songId, Direction orderAttr, SongListAttributes sortAttr);
 	 
-	public List<SongList> readAllSongList(Direction orderAttr ,String sortAttr);
+	public Flux<SongList> readSongLists(Direction orderAttr, SongListAttributes sortAttr);
 }
