@@ -61,6 +61,5 @@ public class SongListBoundry {
 	    if (getName() != null)
 	    	sList.setName(this.name);
 	    return sList;
-	    
 	}	
 }

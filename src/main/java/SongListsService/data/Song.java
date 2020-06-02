@@ -6,11 +6,9 @@ import org.springframework.data.mongodb.core.mapping.Document;
 public class Song {
 
 	@Id
-	private String songId;	
-	//private int occurrences;
+	private String songId;
 	
 	public Song() {
-		//this.occurrences=1;
 	}
 	
 	public String getSongId() {
@@ -20,14 +18,6 @@ public class Song {
 	public void setSongId(String songId) {
 		this.songId = songId;
 	}
-
-	/*public int getOccurrences() {
-		return occurrences;
-	}
-
-	public void setOccurrences(int occurrences) {
-		this.occurrences = occurrences;
-	}*/
 
 	@Override
 	public int hashCode() {
@@ -52,8 +42,5 @@ public class Song {
 		} else if (!songId.equals(other.songId))
 			return false;
 		return true;
-	}
-	
-	
-	
+	}	
 }

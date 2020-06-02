@@ -57,14 +57,11 @@ public class SongListServiceImpl implements SongListService{
 		
 		song.setSongId(song.getSongId()+"#"+songListId);
 		
-		//Save song in DB
-		return this.songDao.findById(song.getSongId())
-			.flatMap(old -> {
-				//In the future maybe certain updates to the song would be handled here
-				return this.songDao.save(song);
-			})
-			.switchIfEmpty(this.songDao.save(song))
-			.flatMap(d -> Mono.empty());		
+		return this.getSongListById(songListId)
+				.flatMap(s -> {
+					return this.songDao.save(song);
+				})
+				.flatMap(d -> Mono.empty());				
 	}
 
 	private boolean validateSong(Song song) {

@@ -13,8 +13,6 @@ public interface SongListService {
 	
 	public Mono<SongList> createSongList (SongList songsList);
 	
-	//public Mono<Song> getSongById (String songId);
-	
 	public Mono<SongList> getSongListById (String songListId);
 	
 	public Mono<Void> updateSongList (String songListId, SongList update);
